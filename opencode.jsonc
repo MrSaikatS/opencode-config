@@ -1,0 +1,49 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "lsp": true,
+  "formatter": true,
+  "permission": {
+    "question": "allow",
+    "webfetch": "allow",
+    "websearch": "allow",
+  },
+  "shell": "pwsh",
+  "small_model": "opencode/big-pickle",
+  "agent": {
+    "build": {
+      "temperature": 0.1,
+      "top_p": 0.85,
+      "presence_penalty": 0.0,
+      "frequency_penalty": 0.0,
+    },
+    "plan": {
+      "temperature": 0.2,
+      "top_p": 0.95,
+      "presence_penalty": 0.0,
+      "frequency_penalty": 0.0,
+    },
+  },
+  "mcp": {
+    "shadcn": {
+      "type": "local",
+      "command": ["npx", "shadcn@latest", "mcp"],
+      "enabled": true,
+    },
+    "better-auth": {
+      "type": "remote",
+      "url": "https://mcp.better-auth.com/mcp",
+      "enabled": true,
+    },
+    "bun": {
+      "type": "remote",
+      "url": "https://bun.com/docs/mcp",
+      "enabled": false,
+    },
+    "deepwiki": {
+      "type": "remote",
+      "url": "https://mcp.deepwiki.com/mcp",
+      "enabled": true,
+    },
+  },
+  "plugin": [],
+}
