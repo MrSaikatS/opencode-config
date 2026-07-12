@@ -45,5 +45,5 @@
       "enabled": true,
     },
   },
-  "plugin": [],
+  "plugin": ["@tarquinen/opencode-dcp@latest"]
 }

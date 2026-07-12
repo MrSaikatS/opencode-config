@@ -72,6 +72,10 @@ cd ~/.config/opencode
 
 ## 🔌 Plugins
 
+### dcp
+
+[Dynamic Context Pruning](https://github.com/Opencode-DCP/opencode-dynamic-context-pruning) — automatically reduces token usage by pruning stale tool outputs and conversation history. Uses a `compress` tool that the model calls on closed tasks, with two modes (`range` and `message`). Configured globally in `opencode.jsonc` under the `"plugin"` key.
+
 ### auto-title
 
 Automatically generates and refines session titles as conversations progress.
