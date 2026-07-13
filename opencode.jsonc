@@ -11,13 +11,13 @@
   "small_model": "opencode/big-pickle",
   "agent": {
     "build": {
-      "temperature": 0.1,
-      "top_p": 0.85,
+      "temperature": 0.2,
+      "top_p": 0.90,
       "presence_penalty": 0.0,
       "frequency_penalty": 0.0,
     },
     "plan": {
-      "temperature": 0.2,
+      "temperature": 0.4,
       "top_p": 0.95,
       "presence_penalty": 0.0,
       "frequency_penalty": 0.0,
