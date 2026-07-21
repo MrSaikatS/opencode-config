@@ -45,6 +45,12 @@ git clone https://github.com/MrSaikatS/opencode-config.git ~/.config/opencode
 cd ~/.config/opencode
 ```
 
+2. **Find the cheapest or free models available** — Run `opencode models` to list available models, then update both:
+
+   - `small_model` in `opencode.jsonc`
+   - `TITLE_MODEL` in `plugins/auto-title.ts`
+   - See [Models CLI docs](https://opencode.ai/docs/cli/#models) for details.
+
 ## ⚙️ Configuration
 
 [`opencode.jsonc`](opencode.jsonc) defines:
@@ -52,14 +58,14 @@ cd ~/.config/opencode
 - **Agent parameters** — `temperature`, `top_p`, `presence_penalty`, `frequency_penalty` for `build` and `plan` agents
 - **Permissions** — `question`, `webfetch`, `websearch` all set to `allow`
 - **Shell** — defaults to `pwsh` (PowerShell 7+)
-- **Small model** — `opencode/big-pickle` for lightweight tasks
+- **Small model** — `opencode/nemotron-3-ultra-free` for lightweight tasks
 
 ### 🤖 Agent Presets
 
 | Agent   | Temperature | Top P | Presence Penalty | Frequency Penalty |
 | ------- | ----------- | ----- | ---------------- | ----------------- |
-| `build` | 0.1         | 0.85  | 0.0              | 0.0               |
-| `plan`  | 0.2         | 0.95  | 0.0              | 0.0               |
+| `build` | 0.2         | 0.9   | 0.0              | 0.0               |
+| `plan`  | 0.4         | 0.95  | 0.0              | 0.0               |
 
 ### 🔌 MCP Servers
 
@@ -86,9 +92,13 @@ Automatically generates and refines session titles as conversations progress.
 - Uses a throwaway temp session for generation — no noise in your real session
 - Handles concurrency, error recovery, and date-stripping on re-refinement
 
+### ponytail
+
+[ponytail](https://github.com/DietrichGebert/ponytail) is a lazy senior dev skill that cuts unnecessary code before it's written. Favors stdlib and native platform features over new dependencies. Benchmarked at ~54% less code, ~20% cheaper, ~27% faster with 100% safety vs a no-skill baseline.
+
 ## 📐 Key Conventions
 
-- **Agent configs** — `build` agent uses lower temperature (0.1) for deterministic output; `plan` agent uses slightly higher (0.2) for creative exploration
+- **Agent configs** — `build` agent uses lower temperature (0.2) for deterministic output; `plan` agent uses slightly higher (0.4) for creative exploration
 - **Plugins** — Each plugin is a single file in `plugins/` exporting a `Plugin` function
 - **Permissions** — All discretionary tools (`question`, `webfetch`, `websearch`) are pre-allowed for faster workflow
 - **MCP** — Local servers use `command` binaries; remote servers use `url` endpoints

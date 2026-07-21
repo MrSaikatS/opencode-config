@@ -8,11 +8,11 @@
     "websearch": "allow",
   },
   "shell": "pwsh",
-  "small_model": "opencode/big-pickle",
+  "small_model": "opencode/nemotron-3-ultra-free",
   "agent": {
     "build": {
       "temperature": 0.2,
-      "top_p": 0.90,
+      "top_p": 0.9,
       "presence_penalty": 0.0,
       "frequency_penalty": 0.0,
     },
@@ -45,5 +45,5 @@
       "enabled": true,
     },
   },
-  "plugin": ["@tarquinen/opencode-dcp@latest"]
+  "plugin": ["@tarquinen/opencode-dcp@latest", "@dietrichgebert/ponytail"]
 }

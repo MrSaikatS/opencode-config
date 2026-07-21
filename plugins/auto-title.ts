@@ -8,6 +8,9 @@ interface SessionState {
 // This is keyed by session ID so multiple concurrent sessions are handled independently.
 const state = new Map<string, SessionState>();
 
+// ponytail: keep in sync with small_model in opencode.jsonc
+const TITLE_MODEL = { providerID: "opencode", modelID: "big-pickle" };
+
 // Processing lock: prevents re-entering the title generation flow for the same session.
 // Without this, session.idle could fire again while we're still generating (e.g. after
 // the temp session prompt completes, which triggers its own idle event).
@@ -91,7 +94,7 @@ export const AutoTitlePlugin: Plugin = async (ctx) => {
         // the user's real conversation. The temp session is created, used once, and
         // deleted — all invisible to the user.
         const { data: tempSession } = await ctx.client.session.create({
-          body: { title: "__title_gen__" },
+          body: { title: "__temp_title_gen__" },
           query: { directory: ctx.directory },
         });
         if (!tempSession) return;
@@ -122,7 +125,7 @@ export const AutoTitlePlugin: Plugin = async (ctx) => {
           const { data: result } = await ctx.client.session.prompt({
             path: { id: tempSession.id },
             body: {
-              model: { providerID: "opencode", modelID: "big-pickle" },
+              model: TITLE_MODEL,
               parts: [{ type: "text", text: promptText }],
             },
           });
