@@ -5,7 +5,7 @@
   "permission": {
     "question": "allow",
     "webfetch": "allow",
-    "websearch": "allow",
+    "websearch": "allow"
   },
   "shell": "pwsh",
   "small_model": "opencode/nemotron-3-ultra-free",
@@ -14,36 +14,36 @@
       "temperature": 0.2,
       "top_p": 0.9,
       "presence_penalty": 0.0,
-      "frequency_penalty": 0.0,
+      "frequency_penalty": 0.0
     },
     "plan": {
       "temperature": 0.4,
       "top_p": 0.95,
       "presence_penalty": 0.0,
-      "frequency_penalty": 0.0,
-    },
+      "frequency_penalty": 0.0
+    }
   },
   "mcp": {
     "shadcn": {
       "type": "local",
       "command": ["npx", "shadcn@latest", "mcp"],
-      "enabled": true,
+      "enabled": true
     },
     "better-auth": {
       "type": "remote",
       "url": "https://mcp.better-auth.com/mcp",
-      "enabled": true,
+      "enabled": true
     },
     "bun": {
       "type": "remote",
       "url": "https://bun.com/docs/mcp",
-      "enabled": false,
+      "enabled": false
     },
     "deepwiki": {
       "type": "remote",
       "url": "https://mcp.deepwiki.com/mcp",
-      "enabled": true,
-    },
+      "enabled": false
+    }
   },
-  "plugin": ["@tarquinen/opencode-dcp@latest", "@dietrichgebert/ponytail"]
+  "plugin": ["@tarquinen/opencode-dcp@latest", "opencode-caveman"]
 }

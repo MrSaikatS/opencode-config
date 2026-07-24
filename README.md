@@ -27,38 +27,42 @@
 
 ## 🧰 What's Inside
 
-| Component            | Description                                       |
-| -------------------- | ------------------------------------------------- |
-| **opencode.jsonc**   | Agent parameters, MCP servers, permissions, shell |
-| **Plugins**          | Custom plugins extending OpenCode's capabilities  |
-| **MCP Servers**      | Local & remote tool integrations                  |
+| Component         | Description                                       |
+| ----------------- | ------------------------------------------------- |
+| **opencode.json** | Agent parameters, MCP servers, permissions, shell |
+| **AGENTS.md**     | Agent instructions and conventions                |
+| **Plugins**       | Custom plugins extending OpenCode's capabilities  |
+| **MCP Servers**   | Local & remote tool integrations                  |
 
 ## ✅ Prerequisites
 
 - [OpenCode](https://opencode.ai) (latest version)
+- [Bun](https://bun.sh)
 - PowerShell 7+ (for local shell execution)
 
 ## 🚀 Getting Started
 
-```bash
-git clone https://github.com/MrSaikatS/opencode-config.git ~/.config/opencode
-cd ~/.config/opencode
-```
+1. **Clone the repo** — Replace your OpenCode config directory:
 
-2. **Find the cheapest or free models available** — Run `opencode models` to list available models, then update both:
+   ```bash
+   git clone https://github.com/MrSaikatS/opencode-config.git ~/.config/opencode
+   ```
 
-   - `small_model` in `opencode.jsonc`
+2. **Find cheapest or free models** — Run `opencode models` to list available models, then update both:
+   - `small_model` in `opencode.json`
    - `TITLE_MODEL` in `plugins/auto-title.ts`
    - See [Models CLI docs](https://opencode.ai/docs/cli/#models) for details.
 
 ## ⚙️ Configuration
 
-[`opencode.jsonc`](opencode.jsonc) defines:
+[`opencode.json`](opencode.json) defines:
 
 - **Agent parameters** — `temperature`, `top_p`, `presence_penalty`, `frequency_penalty` for `build` and `plan` agents
 - **Permissions** — `question`, `webfetch`, `websearch` all set to `allow`
 - **Shell** — defaults to `pwsh` (PowerShell 7+)
 - **Small model** — `opencode/nemotron-3-ultra-free` for lightweight tasks
+- **LSP** — enabled for language server integration
+- **Formatter** — enabled for code formatting
 
 ### 🤖 Agent Presets
 
@@ -73,35 +77,33 @@ cd ~/.config/opencode
 | ------------- | ------ | ----------------------------- | ------- |
 | `shadcn`      | local  | UI component management       | yes     |
 | `better-auth` | remote | Authentication library docs   | yes     |
-| `deepwiki`    | remote | AI-powered repo documentation | yes     |
+| `deepwiki`    | remote | AI-powered repo documentation | no      |
 | `bun`         | remote | Bun runtime docs              | no      |
 
 ## 🔌 Plugins
 
-### dcp
+### [dcp](https://github.com/Opencode-DCP/opencode-dynamic-context-pruning)
 
-[Dynamic Context Pruning](https://github.com/Opencode-DCP/opencode-dynamic-context-pruning) — automatically reduces token usage by pruning stale tool outputs and conversation history. Uses a `compress` tool that the model calls on closed tasks, with two modes (`range` and `message`). Configured globally in `opencode.jsonc` under the `"plugin"` key.
+Reduces token usage by pruning stale tool outputs and conversation history.
+
+- Uses `compress` tool with two modes: `range` and `message`
+- Configured globally in `opencode.json` under `"plugin"` key
 
 ### auto-title
 
-Automatically generates and refines session titles as conversations progress.
+Generates and refines session titles as conversations progress.
 
-- Generates the first title after **3 user messages**
-- Re-refines every **5 additional messages**
+- First title after **3 user messages**, re-refines every **5 more**
 - Format: `{Title} - DD/MM/YYYY HH:MMAM/PM`
-- Uses a throwaway temp session for generation — no noise in your real session
-- Handles concurrency, error recovery, and date-stripping on re-refinement
+- Uses throwaway temp session — no noise in real session
+- Handles concurrency, error recovery, date-stripping on re-refinement
 
-### ponytail
+### [caveman](https://github.com/opencode-caveman/opencode-caveman)
 
-[ponytail](https://github.com/DietrichGebert/ponytail) is a lazy senior dev skill that cuts unnecessary code before it's written. Favors stdlib and native platform features over new dependencies. Benchmarked at ~54% less code, ~20% cheaper, ~27% faster with 100% safety vs a no-skill baseline.
+Ultra-compressed communication mode. Cuts token usage ~75% while keeping full technical accuracy.
 
-## 📐 Key Conventions
-
-- **Agent configs** — `build` agent uses lower temperature (0.2) for deterministic output; `plan` agent uses slightly higher (0.4) for creative exploration
-- **Plugins** — Each plugin is a single file in `plugins/` exporting a `Plugin` function
-- **Permissions** — All discretionary tools (`question`, `webfetch`, `websearch`) are pre-allowed for faster workflow
-- **MCP** — Local servers use `command` binaries; remote servers use `url` endpoints
+- Intensity levels: `lite`, `full` (default), `ultra`, `wenyan-lite`, `wenyan-full`, `wenyan-ultra`
+- Auto-triggers on token efficiency request or `/caveman`
 
 ## 🤝 Contributing
 

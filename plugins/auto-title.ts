@@ -8,8 +8,11 @@ interface SessionState {
 // This is keyed by session ID so multiple concurrent sessions are handled independently.
 const state = new Map<string, SessionState>();
 
-// ponytail: keep in sync with small_model in opencode.jsonc
-const TITLE_MODEL = { providerID: "opencode", modelID: "big-pickle" };
+// Keep in sync with small_model in opencode.json
+const TITLE_MODEL = {
+  providerID: "opencode",
+  modelID: "nemotron-3-ultra-free",
+};
 
 // Processing lock: prevents re-entering the title generation flow for the same session.
 // Without this, session.idle could fire again while we're still generating (e.g. after
@@ -27,10 +30,19 @@ export const AutoTitlePlugin: Plugin = async (ctx) => {
     // session.idle fires after each AI response finishes, which is the safest
     // time to snapshot the conversation state for title generation.
     event: async ({ event }) => {
+      if (event.type === "session.deleted") {
+        state.delete(event.properties.sessionID);
+        return;
+      }
       if (event.type !== "session.idle") return;
 
       const sessionId = event.properties.sessionID;
       if (!sessionId || processing.has(sessionId)) return;
+
+      // Acquire lock immediately to prevent race condition.
+      // session.idle could fire again while we're still generating
+      // (e.g. after temp session prompt completes, triggering its own idle event).
+      processing.add(sessionId);
 
       try {
         // ── 1. Count user messages to decide if we should generate a title ──
@@ -41,7 +53,7 @@ export const AutoTitlePlugin: Plugin = async (ctx) => {
 
         // Only count user-role messages. Assistant messages, compaction summaries,
         // and other system messages are excluded from the threshold check.
-        const userCount = messages.filter((m) => m.info.role === "user").length;
+        const userCount = messages.filter((m) => m.info?.role === "user").length;
         if (userCount < FIRST_THRESHOLD) return;
 
         // Retrieve the last processed count for this session (defaults to 0).
@@ -53,9 +65,6 @@ export const AutoTitlePlugin: Plugin = async (ctx) => {
             FIRST_THRESHOLD
           : s.lastProcessedCount + INTERVAL;
         if (userCount < nextThreshold) return;
-
-        // Acquire the processing lock for this session
-        processing.add(sessionId);
 
         // ── 2. Get current session info for the refinement prompt ──
         const { data: session } = await ctx.client.session.get({
@@ -133,7 +142,7 @@ export const AutoTitlePlugin: Plugin = async (ctx) => {
 
           // Extract the title from the assistant's response. The response may contain
           // multiple parts (text, reasoning, tool calls), so we pick the first text part.
-          const textPart = result.parts.find((p) => p.type === "text");
+          const textPart = result.parts?.find((p) => p.type === "text");
           if (!textPart || textPart.type !== "text") return;
           let titleText = textPart.text.trim();
 
@@ -157,9 +166,8 @@ export const AutoTitlePlugin: Plugin = async (ctx) => {
             body: { title: formattedTitle },
           });
 
-          // Advance the counter: +1 accounts for our injected prompt message so the
-          // next threshold correctly reflects INTERVAL real user messages later.
-          state.set(sessionId, { lastProcessedCount: userCount + 1 });
+          // Advance the counter so next threshold reflects INTERVAL real user messages later.
+          state.set(sessionId, { lastProcessedCount: userCount });
         } finally {
           // Always delete the temp session, even if an error occurred above.
           // The .catch() silently swallows cleanup errors (e.g. session already deleted).
