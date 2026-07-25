@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  ⭐ If you find this project useful, consider giving it a star — it helps others discover it!
+  ⭐ If you find this project useful, consider giving it a star - it helps others discover it!
 </p>
 
 <p align="center">Personal <a href="https://opencode.ai">OpenCode</a> configuration, plugins, and MCP server setup.</p>
@@ -36,33 +36,40 @@
 
 ## ✅ Prerequisites
 
-- [OpenCode](https://opencode.ai) (latest version)
-- [Bun](https://bun.sh)
-- PowerShell 7+ (for local shell execution)
+- [Bun](https://bun.sh/docs/installation#windows)
+- [Git](https://git-scm.com/install/windows)
+- [PowerShell 7+](https://learn.microsoft.com/en-us/powershell/scripting/install/install-powershell-on-windows?view=powershell-7.6#msi)
 
 ## 🚀 Getting Started
 
-1. **Clone the repo** — Replace your OpenCode config directory:
+1. **Backup or uninstall** - Run `opencode uninstall` if you have an existing installation.
+
+2. **Install OpenCode** - Install globally via Bun:
 
    ```bash
-   git clone https://github.com/MrSaikatS/opencode-config.git ~/.config/opencode
+   bun i -g opencode-ai@latest
    ```
 
-2. **Find cheapest or free models** — Run `opencode models` to list available models, then update both:
-   - `small_model` in `opencode.json`
-   - `TITLE_MODEL` in `plugins/auto-title.ts`
-   - See [Models CLI docs](https://opencode.ai/docs/cli/#models) for details.
+3. **Copy config files** - Copy `plugins/auto-title.ts`, `AGENTS.md`, and `opencode.json` from this repo to `C:\Users\<YourUsername>\.config\opencode`.
+
+4. **Open OpenCode** - Run `opencode` in PowerShell to launch the TUI.
+
+   > **Note:** Wait for the TUI to fully load and the MCP status to turn green before using OpenCode.
+
+5. **Connect** - In the TUI, run `/connect`, select `opencode`, then visit `opencode.ai/auth`.
+
+6. **Authenticate** - Sign in with GitHub, go to **API Keys**, copy or create a key, and paste it into the TUI.
 
 ## ⚙️ Configuration
 
 [`opencode.json`](opencode.json) defines:
 
-- **Agent parameters** — `temperature`, `top_p`, `presence_penalty`, `frequency_penalty` for `build` and `plan` agents
-- **Permissions** — `question`, `webfetch`, `websearch` all set to `allow`
-- **Shell** — defaults to `pwsh` (PowerShell 7+)
-- **Small model** — `opencode/nemotron-3-ultra-free` for lightweight tasks
-- **LSP** — enabled for language server integration
-- **Formatter** — enabled for code formatting
+- **Agent parameters** - `temperature`, `top_p`, `presence_penalty`, `frequency_penalty` for `build` and `plan` agents
+- **Permissions** - `question`, `webfetch`, `websearch` all set to `allow`
+- **Shell** - defaults to `pwsh` (PowerShell 7+)
+- **Small model** - `opencode/nemotron-3-ultra-free` for lightweight tasks
+- **LSP** - enabled for language server integration
+- **Formatter** - enabled for code formatting
 
 ### 🤖 Agent Presets
 
@@ -95,7 +102,7 @@ Generates and refines session titles as conversations progress.
 
 - First title after **3 user messages**, re-refines every **5 more**
 - Format: `{Title} - DD/MM/YYYY HH:MMAM/PM`
-- Uses throwaway temp session — no noise in real session
+- Uses throwaway temp session - no noise in real session
 - Handles concurrency, error recovery, date-stripping on re-refinement
 
 ### [caveman](https://github.com/opencode-caveman/opencode-caveman)
@@ -119,7 +126,7 @@ Check the [issues page](https://github.com/MrSaikatS/opencode-config/issues) for
 
 ## 📄 License
 
-MIT — see [LICENSE](LICENSE).
+MIT - see [LICENSE](LICENSE).
 
 ---
 
