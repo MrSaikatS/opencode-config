@@ -50,6 +50,8 @@
    bun i -g opencode-ai@latest
    ```
 
+   > **Note:** If `Blocked 1 postinstall` appears after install, run `bun pm -g trust --all`.
+
 3. **Copy config files** - Copy `plugins/auto-title.ts`, `AGENTS.md`, and `opencode.json` from this repo to `C:\Users\<YourUsername>\.config\opencode`.
 
 4. **Open OpenCode** - Run `opencode` in PowerShell to launch the TUI.
