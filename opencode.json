@@ -45,5 +45,6 @@
       "enabled": false
     }
   },
-  "plugin": ["@tarquinen/opencode-dcp@latest", "opencode-caveman"]
+  "instructions": ["AGENTS.md"],
+  "plugin": ["@tarquinen/opencode-dcp@latest"]
 }

@@ -31,6 +31,7 @@
 | ----------------- | ------------------------------------------------- |
 | **opencode.json** | Agent parameters, MCP servers, permissions, shell |
 | **AGENTS.md**     | Agent instructions and conventions                |
+| **tui.json**      | TUI settings (attention notifications)            |
 | **Plugins**       | Custom plugins extending OpenCode's capabilities  |
 | **MCP Servers**   | Local & remote tool integrations                  |
 
@@ -52,7 +53,7 @@
 
    > **Note:** If `Blocked 1 postinstall` appears after install, run `bun pm -g trust --all`.
 
-3. **Copy config files** - Copy `plugins/auto-title.ts`, `AGENTS.md`, and `opencode.json` from this repo to `C:\Users\<YourUsername>\.config\opencode`.
+3. **Copy config files** - Copy `plugins/auto-title.ts`, `AGENTS.md`, `opencode.json`, and `tui.json` from this repo to `C:\Users\<YourUsername>\.config\opencode`.
 
 4. **Open OpenCode** - Run `opencode` in PowerShell to launch the TUI.
 
@@ -91,7 +92,7 @@
 
 ## 🔌 Plugins
 
-### [dcp](https://github.com/Opencode-DCP/opencode-dynamic-context-pruning)
+### [dcp](https://github.com/tarquinen/opencode-dcp)
 
 Reduces token usage by pruning stale tool outputs and conversation history.
 
@@ -107,13 +108,6 @@ Generates and refines session titles as conversations progress.
 - Uses throwaway temp session - no noise in real session
 - Handles concurrency, error recovery, date-stripping on re-refinement
 
-### [caveman](https://github.com/opencode-caveman/opencode-caveman)
-
-Ultra-compressed communication mode. Cuts token usage ~75% while keeping full technical accuracy.
-
-- Intensity levels: `lite`, `full` (default), `ultra`, `wenyan-lite`, `wenyan-full`, `wenyan-ultra`
-- Auto-triggers on token efficiency request or `/caveman`
-
 ## 🤝 Contributing
 
 We welcome contributions! Here's how you can help:
@@ -125,10 +119,6 @@ We welcome contributions! Here's how you can help:
 5. 🚀 Open a Pull Request
 
 Check the [issues page](https://github.com/MrSaikatS/opencode-config/issues) for bugs or feature requests.
-
-## 📄 License
-
-MIT - see [LICENSE](LICENSE).
 
 ---
 
