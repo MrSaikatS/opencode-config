@@ -13,20 +13,20 @@
     "build": {
       "temperature": 0.2,
       "top_p": 0.9,
-      "presence_penalty": 0.0,
-      "frequency_penalty": 0.0
+      "presence_penalty": 0,
+      "frequency_penalty": 0
     },
     "plan": {
       "temperature": 0.4,
       "top_p": 0.95,
-      "presence_penalty": 0.0,
-      "frequency_penalty": 0.0
+      "presence_penalty": 0,
+      "frequency_penalty": 0
     }
   },
   "mcp": {
     "shadcn": {
       "type": "local",
-      "command": ["npx", "shadcn@latest", "mcp"],
+      "command": ["bunx", "--bun", "shadcn@latest", "mcp"],
       "enabled": true
     },
     "better-auth": {
@@ -45,6 +45,9 @@
       "enabled": false
     }
   },
-  "instructions": ["AGENTS.md"],
-  "plugin": ["@tarquinen/opencode-dcp@latest"]
+  "plugin": ["@tarquinen/opencode-dcp@latest"],
+  "server": {
+    "hostname": "0.0.0.0",
+    "mdns": true
+  }
 }
