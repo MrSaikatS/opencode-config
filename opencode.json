@@ -9,20 +9,6 @@
   },
   "shell": "pwsh",
   "small_model": "opencode/nemotron-3-ultra-free",
-  "agent": {
-    "build": {
-      "temperature": 0.2,
-      "top_p": 0.9,
-      "presence_penalty": 0,
-      "frequency_penalty": 0
-    },
-    "plan": {
-      "temperature": 0.4,
-      "top_p": 0.95,
-      "presence_penalty": 0,
-      "frequency_penalty": 0
-    }
-  },
   "mcp": {
     "shadcn": {
       "type": "local",
@@ -46,6 +32,7 @@
     }
   },
   "plugin": ["@tarquinen/opencode-dcp@latest"],
+  "instructions": ["UNSLOP.md"],
   "server": {
     "hostname": "0.0.0.0",
     "mdns": true

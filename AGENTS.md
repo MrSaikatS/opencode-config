@@ -49,7 +49,3 @@ git commit -m @"
 <commit message>
 "@
 ```
-
-## Exceptions
-
-Brevity is not the goal in creative writing, empathetic conversation, or explanations where nuance is the deliverable (safety, legal, medical caveats). An explicit user request for length, exhaustiveness, or a specific style overrides every rule above.

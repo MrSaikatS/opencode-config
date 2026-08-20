@@ -29,8 +29,9 @@
 
 | Component         | Description                                       |
 | ----------------- | ------------------------------------------------- |
-| **opencode.json** | Agent parameters, MCP servers, permissions, shell |
+| **opencode.json** | MCP servers, permissions, shell, server config     |
 | **AGENTS.md**     | Agent instructions and conventions                |
+| **UNSLOP.md**     | Instructions for stripping AI tells from text     |
 | **tui.json**      | TUI settings (attention notifications)            |
 | **Plugins**       | Custom plugins extending OpenCode's capabilities  |
 | **MCP Servers**   | Local & remote tool integrations                  |
@@ -53,7 +54,7 @@
 
    > **Note:** If `Blocked 1 postinstall` appears after install, run `bun pm -g trust --all`.
 
-3. **Copy config files** - Copy `plugins/auto-title.ts`, `AGENTS.md`, `opencode.json`, and `tui.json` from this repo to `C:\Users\<YourUsername>\.config\opencode`.
+3. **Copy config files** - Copy `plugins/auto-title.ts`, `AGENTS.md`, `UNSLOP.md`, `opencode.json`, and `tui.json` from this repo to `C:\Users\<YourUsername>\.config\opencode`.
 
 4. **Open OpenCode** - Run `opencode` in PowerShell to launch the TUI.
 
@@ -67,19 +68,12 @@
 
 [`opencode.json`](opencode.json) defines:
 
-- **Agent parameters** - `temperature`, `top_p`, `presence_penalty`, `frequency_penalty` for `build` and `plan` agents
 - **Permissions** - `question`, `webfetch`, `websearch` all set to `allow`
 - **Shell** - defaults to `pwsh` (PowerShell 7+)
 - **Small model** - `opencode/nemotron-3-ultra-free` for lightweight tasks
 - **LSP** - enabled for language server integration
 - **Formatter** - enabled for code formatting
-
-### 🤖 Agent Presets
-
-| Agent   | Temperature | Top P | Presence Penalty | Frequency Penalty |
-| ------- | ----------- | ----- | ---------------- | ----------------- |
-| `build` | 0.2         | 0.9   | 0.0              | 0.0               |
-| `plan`  | 0.4         | 0.95  | 0.0              | 0.0               |
+- **Server** - binds to `0.0.0.0` with mdns discovery enabled
 
 ### 🔌 MCP Servers
 
