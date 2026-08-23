@@ -8,7 +8,7 @@
     "websearch": "allow"
   },
   "shell": "pwsh",
-  "small_model": "opencode/nemotron-3-ultra-free",
+  "small_model": "opencode/nemotron-3.5-lightning-free",
   "mcp": {
     "shadcn": {
       "type": "local",

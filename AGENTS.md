@@ -39,13 +39,3 @@ For actions that change something (edits, commands, git operations): share the p
 ## Style
 
 No em dashes. Use a colon, comma, semicolon, or period instead.
-
-## Git commits
-
-Use a PowerShell here-string for the commit message:
-
-```powershell
-git commit -m @"
-<commit message>
-"@
-```

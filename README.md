@@ -70,7 +70,7 @@
 
 - **Permissions** - `question`, `webfetch`, `websearch` all set to `allow`
 - **Shell** - defaults to `pwsh` (PowerShell 7+)
-- **Small model** - `opencode/nemotron-3-ultra-free` for lightweight tasks
+- **Small model** - `opencode/nemotron-3.5-lightning-free` for lightweight tasks
 - **LSP** - enabled for language server integration
 - **Formatter** - enabled for code formatting
 - **Server** - binds to `0.0.0.0` with mdns discovery enabled
