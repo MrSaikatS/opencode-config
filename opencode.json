@@ -2,6 +2,7 @@
   "$schema": "https://opencode.ai/config.json",
   "lsp": true,
   "formatter": true,
+  "share": "disabled",
   "permission": {
     "question": "allow",
     "webfetch": "allow",
@@ -31,8 +32,10 @@
       "enabled": false
     }
   },
-  "plugin": ["@tarquinen/opencode-dcp@latest"],
-  "instructions": ["UNSLOP.md"],
+  "compaction": {
+    "auto": true,
+    "prune": true
+  },
   "server": {
     "hostname": "0.0.0.0",
     "mdns": true

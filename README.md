@@ -27,14 +27,13 @@
 
 ## 🧰 What's Inside
 
-| Component         | Description                                       |
-| ----------------- | ------------------------------------------------- |
-| **opencode.json** | MCP servers, permissions, shell, server config     |
-| **AGENTS.md**     | Agent instructions and conventions                |
-| **UNSLOP.md**     | Instructions for stripping AI tells from text     |
-| **tui.json**      | TUI settings (attention notifications)            |
-| **Plugins**       | Custom plugins extending OpenCode's capabilities  |
-| **MCP Servers**   | Local & remote tool integrations                  |
+| Component         | Description                                                 |
+| ----------------- | ----------------------------------------------------------- |
+| **opencode.json** | MCP servers, permissions, shell, server config              |
+| **AGENTS.md**     | Agent instructions and conventions (includes uns lop rules) |
+| **tui.json**      | TUI settings (attention notifications)                      |
+| **Plugins**       | Custom plugins extending OpenCode's capabilities            |
+| **MCP Servers**   | Local & remote tool integrations                            |
 
 ## ✅ Prerequisites
 
@@ -49,12 +48,19 @@
 2. **Install OpenCode** - Install globally via Bun:
 
    ```bash
-   bun i -g opencode-ai@latest
+   bun i -g --trust opencode-ai@latest
    ```
 
-   > **Note:** If `Blocked 1 postinstall` appears after install, run `bun pm -g trust --all`.
+3. **Copy config files** - Copy `AGENTS.md`, `opencode.json`, `tui.json`, and `plugins/auto-title.ts` from this repo to `C:\Users\<YourUsername>\.config\opencode`:
 
-3. **Copy config files** - Copy `plugins/auto-title.ts`, `AGENTS.md`, `UNSLOP.md`, `opencode.json`, and `tui.json` from this repo to `C:\Users\<YourUsername>\.config\opencode`.
+   ```
+   .config/opencode/
+   ├── AGENTS.md
+   ├── opencode.json
+   ├── tui.json
+   └── plugins/
+       └── auto-title.ts
+   ```
 
 4. **Open OpenCode** - Run `opencode` in PowerShell to launch the TUI.
 
@@ -73,6 +79,8 @@
 - **Small model** - `opencode/nemotron-3.5-lightning-free` for lightweight tasks
 - **LSP** - enabled for language server integration
 - **Formatter** - enabled for code formatting
+- **Share** - disabled
+- **Compaction** - auto and prune enabled
 - **Server** - binds to `0.0.0.0` with mdns discovery enabled
 
 ### 🔌 MCP Servers
@@ -86,13 +94,6 @@
 
 ## 🔌 Plugins
 
-### [dcp](https://github.com/tarquinen/opencode-dcp)
-
-Reduces token usage by pruning stale tool outputs and conversation history.
-
-- Uses `compress` tool with two modes: `range` and `message`
-- Configured globally in `opencode.json` under `"plugin"` key
-
 ### auto-title
 
 Generates and refines session titles as conversations progress.
@@ -101,6 +102,7 @@ Generates and refines session titles as conversations progress.
 - Format: `{Title} - DD/MM/YYYY HH:MMAM/PM`
 - Uses throwaway temp session - no noise in real session
 - Handles concurrency, error recovery, date-stripping on re-refinement
+- Feeds previous title back on refinement for continuity
 
 ## 🤝 Contributing
 
@@ -114,10 +116,14 @@ We welcome contributions! Here's how you can help:
 
 Check the [issues page](https://github.com/MrSaikatS/opencode-config/issues) for bugs or feature requests.
 
+## 📄 License
+
+MIT — see [LICENSE](LICENSE).
+
 ---
 
 <p align="center">
   Made with ❤️ by <a href="https://github.com/MrSaikatS">Saikat Sardar</a>
   <br>
-  🐛 Report Bug · 💡 Suggest Feature
+  🐛 <a href="https://github.com/MrSaikatS/opencode-config/issues/new">Report Bug</a> · 💡 <a href="https://github.com/MrSaikatS/opencode-config/issues/new?labels=enhancement">Suggest Feature</a>
 </p>

@@ -280,6 +280,9 @@ export const AutoTitlePlugin: Plugin = async (ctx) => {
 
         const currentTitle = getSessionTitle(session.title);
         const conversationText = buildConversationText(messages);
+        const contextText = currentTitle
+          ? `Previous session title: "${currentTitle}"\n\n${conversationText}`
+          : conversationText;
 
         const { data: tempSession } = await ctx.client.session.create({
           body: { title: TEMP_SESSION_TITLE },
@@ -299,7 +302,7 @@ export const AutoTitlePlugin: Plugin = async (ctx) => {
             model?: TitleModel;
           } = {
             noReply: true,
-            parts: [{ type: "text", text: conversationText }],
+            parts: [{ type: "text", text: contextText }],
           };
 
           if (cachedTitleModel) {
