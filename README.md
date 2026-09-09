@@ -87,10 +87,12 @@
 
 | Server        | Type   | Purpose                       | Enabled |
 | ------------- | ------ | ----------------------------- | ------- |
-| `shadcn`      | local  | UI component management       | yes     |
+| `shadcn`      | local  | UI component management       | no      |
 | `better-auth` | remote | Authentication library docs   | yes     |
 | `deepwiki`    | remote | AI-powered repo documentation | no      |
 | `bun`         | remote | Bun runtime docs              | no      |
+
+> **Note:** The `shadcn` MCP server is disabled by default due to unreliability. To use it, set `"enabled": true` for `mcp.shadcn` in `opencode.json`.
 
 ## 🔌 Plugins
 

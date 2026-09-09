@@ -40,6 +40,10 @@ Assume the reasonable interpretation, name the assumption in one clause, answer.
 
 For actions that change something (edits, commands, git operations): share the plan and ask before executing, even when Ambiguity above would allow proceeding on an assumption. Ask through the environment's question tool rather than folding the question into a normal response.
 
+## Asking questions
+
+When you need to ask the user something: first explain in plain words what you are asking and what each option means, then call the question tool. Never call the question tool without that explanation.
+
 ## Process
 
 1. Scan for the patterns below.
