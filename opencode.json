@@ -1,43 +1,32 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "lsp": true,
-  "formatter": true,
-  "share": "disabled",
-  "permission": {
-    "question": "allow",
-    "webfetch": "allow",
-    "websearch": "allow"
-  },
   "shell": "pwsh",
+  "username": "Saikat",
+  "formatter": true,
+  "lsp": true,
   "small_model": "opencode/nemotron-3.5-lightning-free",
   "mcp": {
-    "shadcn": {
-      "type": "local",
-      "command": ["bunx", "--bun", "shadcn@latest", "mcp"],
-      "enabled": false
-    },
-    "better-auth": {
-      "type": "remote",
-      "url": "https://mcp.better-auth.com/mcp",
-      "enabled": true
-    },
-    "bun": {
-      "type": "remote",
-      "url": "https://bun.com/docs/mcp",
-      "enabled": false
-    },
-    "deepwiki": {
-      "type": "remote",
-      "url": "https://mcp.deepwiki.com/mcp",
-      "enabled": false
+    "servers": {
+      "shadcn": {
+        "type": "local",
+        "command": ["bunx", "--bun", "shadcn@latest", "mcp"],
+        "disabled": false
+      },
+      "better-auth": {
+        "type": "remote",
+        "url": "https://mcp.better-auth.com/mcp",
+        "disabled": false
+      },
+      "bun": {
+        "type": "remote",
+        "url": "https://bun.com/docs/mcp",
+        "disabled": true
+      },
+      "deepwiki": {
+        "type": "remote",
+        "url": "https://mcp.deepwiki.com/mcp",
+        "disabled": true
+      }
     }
-  },
-  "compaction": {
-    "auto": true,
-    "prune": true
-  },
-  "server": {
-    "hostname": "0.0.0.0",
-    "mdns": true
   }
 }
