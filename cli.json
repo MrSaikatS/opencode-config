@@ -1,0 +1,30 @@
+{
+  "$schema": "https://opencode.ai/v2/cli.json",
+  "theme": {
+    "name": "opencode",
+    "mode": "dark"
+  },
+  "animations": true,
+  "session": {
+    "scrollbar": true,
+    "thinking": "show",
+    "grouping": "none"
+  },
+  "tabs": {
+    "indicators": "status",
+    "layout": "horizontal",
+    "enabled": true
+  },
+  "attention": {
+    "notifications": true,
+    "sound": true,
+    "volume": 1
+  },
+  "prompt": {
+    "image_preview": true
+  },
+  "debug": {
+    "devtools": false,
+    "turn_tokens": true
+  }
+}
