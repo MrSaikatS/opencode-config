@@ -6,9 +6,9 @@
 //
 // Trigger model (verified against OpenCode v2.0.11 — see API_NOTES.md):
 // `session.status` / `session.idle` events are never emitted by this server,
-// so session activity itself is the heartbeat: every event carrying a
-// sessionID re-arms a 30s debounce timer. When the timer fires, `session.wait`
-// confirms the session is truly idle before any inference is spent.
+// so session activity itself is the heartbeat. Split rule: the first title
+// fires fast after the 3rd assistant response with no idle wait; retitles
+// keep the full idle debounce plus a `session.wait` quiescence check.
 //
 // Loader note: the server does not resolve bare specifiers (npm packages) for
 // auto-discovered global files, and `Plugin.define()` returns its argument
@@ -17,9 +17,13 @@
 const PLUGIN_ID = "auto-title"
 const STATE_KEY = "auto-title/state/v1"
 const WORKER_KEY = "auto-title/worker/v1"
+const TRACE_KEY = "auto-title/trace/v1"
+const CLAIM_KEY = "auto-title/claim/v1"
+const CLAIM_TTL_MS = 120000
 const WORKER_TITLE = "auto-title worker managed do not rename"
 const SWEEP_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000
 const SWEEP_MAX_ENTRIES = 500
+const INITIAL_DEBOUNCE_MS = 3000
 
 const unwrap = (v) => {
   if (v && typeof v === "object" && "data" in v && v.data && typeof v.data === "object") return v.data
@@ -82,12 +86,17 @@ const TITLE_SUFFIX_RE = /\s*-\s*\d{2}\/\d{2}\/\d{4}\s+\d{1,2}:\d{2}(?:AM|PM)\s*$
 
 const parseTitle = (raw) => {
   if (typeof raw !== "string") return null
-  const line = raw.trim().split("\n").map((l) => l.trim()).find(Boolean)
+  const line = raw
+    .trim()
+    .split("\n")
+    .map((l) => l.trim().replace(/^["'`]+|["'`.,;]+$/g, ""))
+    .find(Boolean)
   if (!line) return null
-  const match = line.match(TITLE_LINE_RE)
+  const match = stripTimestamp(line).match(TITLE_LINE_RE)
   if (!match) return null
-  const category = match[1].trim()
-  const title = match[2].trim()
+  const lowered = match[1].trim().toLowerCase()
+  const category = lowered.charAt(0).toUpperCase() + lowered.slice(1)
+  const title = match[2].trim().replace(/^["'`]+|["'`.,;]+$/g, "")
   if (!VALID_CATEGORIES.has(category)) return null
   if (title.length < 3 || title.length > 120) return null
   if (!/[A-Za-z0-9]/.test(title)) return null
@@ -366,6 +375,7 @@ export default {
     log.info(`loaded (app=${ctx.app?.version ?? "?"}, dir=${ctx.location?.directory ?? "?"})`)
 
     const state = makeStateStore(ctx, log)
+    const instanceID = Math.random().toString(36).slice(2) + Date.now().toString(36)
     const idleTimers = new Map()
     const processing = new Map()
     const selfGenerating = new Set()
@@ -387,6 +397,68 @@ export default {
         await ctx.storage.set(WORKER_KEY, v)
       } catch (err) {
         log.warn(`worker store write failed: ${err?.message ?? err}`)
+      }
+    }
+    // Single flight across stacked instances: the first copy to reach
+    // generation claims the run in shared storage. Late copies see a fresh
+    // foreign claim and stand down before spending inference. Fail open so
+    // a storage hiccup never blocks titles.
+    const claimRun = async (sessionID) => {
+      try {
+        let all = null
+        try {
+          all = await ctx.storage.get(CLAIM_KEY)
+        } catch {}
+        if (!all || typeof all !== "object") all = {}
+        const now = Date.now()
+        const cur = all[sessionID]
+        if (cur && cur.owner !== instanceID && now - (cur.at ?? 0) < CLAIM_TTL_MS) return false
+        all[sessionID] = { owner: instanceID, at: now }
+        await ctx.storage.set(CLAIM_KEY, all)
+        return true
+      } catch {
+        return true
+      }
+    }
+    const verifyClaim = async (sessionID) => {
+      try {
+        const all = await ctx.storage.get(CLAIM_KEY)
+        return all?.[sessionID]?.owner === instanceID
+      } catch {
+        return true
+      }
+    }
+    const releaseClaim = async (sessionID) => {
+      try {
+        const all = await ctx.storage.get(CLAIM_KEY)
+        if (all && all[sessionID]?.owner === instanceID) {
+          delete all[sessionID]
+          await ctx.storage.set(CLAIM_KEY, all)
+        }
+      } catch {}
+    }
+    // Visible trace: console lines never reach opencode.log, so each run
+    // records its decision in storage where the CLI can read it back.
+    const note = async (sessionID, decision, extra) => {
+      try {
+        let all = null
+        try {
+          all = await ctx.storage.get(TRACE_KEY)
+        } catch {}
+        if (!all || typeof all !== "object") all = {}
+        all[sessionID] = { at: Date.now(), decision, ...(extra ?? {}) }
+        const ids = Object.keys(all)
+        if (ids.length > 100) {
+          ids
+            .sort((a, b) => (all[a]?.at ?? 0) - (all[b]?.at ?? 0))
+            .slice(0, ids.length - 100)
+            .forEach((id) => {
+              delete all[id]
+            })
+        }
+        await ctx.storage.set(TRACE_KEY, all)
+      } catch (err) {
+        log.debug(`trace write failed: ${err?.message ?? err}`)
       }
     }
     const ensureWorker = async (model) => {
@@ -474,15 +546,26 @@ export default {
         processing.delete(sessionID)
       }
     }
-    const scheduleTitle = (sessionID) => {
+    const scheduleTitle = (sessionID, delayMs) => {
       cancelTimer(sessionID)
       idleTimers.set(
         sessionID,
         setTimeout(() => {
           idleTimers.delete(sessionID)
           void maybeGenerateTitle(sessionID)
-        }, options.idleDebounceMs),
+        }, delayMs ?? options.idleDebounceMs),
       )
+    }
+    // Split rule: untitled sessions fire fast so the first title lands near
+    // the 3rd response; titled sessions keep the full idle debounce.
+    const scheduleByState = (sessionID) => {
+      state
+        .read(sessionID)
+        .then((prior) => {
+          if (prior?.lastTitle) scheduleTitle(sessionID)
+          else scheduleTitle(sessionID, Math.min(INITIAL_DEBOUNCE_MS, options.idleDebounceMs))
+        })
+        .catch(() => scheduleTitle(sessionID))
     }
     const heartbeat = (sessionID) => {
       // Session activity re-arms the debounce: while the conversation is
@@ -490,7 +573,7 @@ export default {
       // aborts any in-flight generation for a stale turn — unless the
       // activity is our own session.generate fallback call.
       if (!selfGenerating.has(sessionID)) abortGeneration(sessionID)
-      scheduleTitle(sessionID)
+      scheduleByState(sessionID)
     }
 
     const eventDir = (event) => {
@@ -517,16 +600,8 @@ export default {
           return
         }
 
-        // Idle guard (no session.status events on this server): only spend
-        // inference once the session is actually quiescent.
-        try {
-          await ctx.session.wait({ sessionID }, { signal: ac.signal })
-        } catch (err) {
-          if (!ac.signal.aborted) log.debug(`wait failed for ${sessionID}: ${err?.message ?? err}`)
-          return
-        }
-        if (ac.signal.aborted) return
-
+        // Read-then-gate: count responses before spending any idle wait,
+        // so the first title can fire fast and every skip leaves a trace.
         let messages = []
         try {
           messages = await listMessages(ctx, sessionID)
@@ -538,11 +613,55 @@ export default {
         const prior = await state.read(sessionID)
 
         const isInitial = !prior?.lastTitle
-        if (isInitial && assistantCount < options.initialTitleAtAssistantCount) return
+        log.info(
+          `check ${sessionID}: assistants=${assistantCount} ` +
+            `prior=${prior?.lastTitle ?? "none"} initial=${isInitial}`,
+        )
+        await note(sessionID, "run", { assistantCount, isInitial })
+        if (isInitial && assistantCount < options.initialTitleAtAssistantCount) {
+          log.info(
+            `skip ${sessionID}: need=${options.initialTitleAtAssistantCount} have=${assistantCount}`,
+          )
+          await note(sessionID, "skip-count", { assistantCount })
+          return
+        }
         if (!isInitial) {
-          if (!options.enableRetitle) return
+          if (!options.enableRetitle) {
+            log.info(`skip ${sessionID}: retitle disabled`)
+            await note(sessionID, "skip-disabled", { assistantCount })
+            return
+          }
           const delta = assistantCount - (prior.lastTitleAtAssistantCount ?? 0)
-          if (delta < options.retitleAfterAssistantDelta) return
+          if (assistantCount < (prior.lastTitleAtAssistantCount ?? 0)) {
+            // Context compacted or truncated since the last title, so the
+            // live count fell below the stored one. Rebase instead of
+            // stalling on a negative delta forever.
+            log.info(
+              `rebase ${sessionID}: count fell ${prior.lastTitleAtAssistantCount} -> ${assistantCount}`,
+            )
+            await state.write(sessionID, { ...prior, lastTitleAtAssistantCount: assistantCount })
+            await note(sessionID, "rebase", {
+              assistantCount,
+              storedCount: prior.lastTitleAtAssistantCount ?? 0,
+            })
+            return
+          }
+          if (delta < options.retitleAfterAssistantDelta) {
+            log.info(
+              `skip ${sessionID}: delta=${delta} need=${options.retitleAfterAssistantDelta}`,
+            )
+            await note(sessionID, "skip-delta", { assistantCount, delta })
+            return
+          }
+          // Retitle idle guard: only spend inference once the session is
+          // actually quiescent. The first title skips this by design.
+          try {
+            await ctx.session.wait({ sessionID }, { signal: ac.signal })
+          } catch (err) {
+            if (!ac.signal.aborted) log.debug(`wait failed for ${sessionID}: ${err?.message ?? err}`)
+            return
+          }
+          if (ac.signal.aborted) return
         }
 
         const windowSize = isInitial ? options.minUserMessages : options.maxUserMessages
@@ -559,57 +678,101 @@ export default {
           { maxUserMessages: windowSize, maxCharsPerMessage: options.maxCharsPerMessage, includeOpeningRequest: options.includeOpeningRequest },
           firstUserText,
         )
-        if (!transcript) return
+        if (!transcript) {
+          log.info(`skip ${sessionID}: empty transcript`)
+          await note(sessionID, "skip-transcript", { assistantCount })
+          return
+        }
 
         const prevTitle = prior?.lastTitle ? stripTimestamp(prior.lastTitle) : null
         const model = await resolveTitleModel(ctx, options, session, log)
         if (ac.signal.aborted) return
 
-        // Small jitter + fresh-state re-read so concurrent instances
-        // (e.g. after a hot reload) converge instead of rename-storming.
+        if (!(await claimRun(sessionID))) {
+          log.info(`skip ${sessionID}: claimed by another instance`)
+          await note(sessionID, "skip-claimed", { assistantCount })
+          return
+        }
+
+        // Small jitter + claim verify + fresh-state re-read so concurrent
+        // instances converge instead of rename-storming.
         await new Promise((r) => setTimeout(r, Math.floor(Math.random() * 2000)))
         if (ac.signal.aborted) return
+        if (!(await verifyClaim(sessionID))) {
+          log.info(`skip ${sessionID}: lost claim to another instance`)
+          await note(sessionID, "skip-claimed", { assistantCount })
+          return
+        }
 
         let raw = ""
-        try {
+        const genStartedAt = Date.now()
+        const prompt = buildPrompt(prevTitle, transcript)
+        // One attempt races generation against a 45s timeout. Title calls
+        // normally take ~30s, so a stall gets one retry on a fresh worker
+        // instead of failing the whole run.
+        const runOnce = () => {
           const genPromise = generateWithFallback({
             sessionID,
             model,
-            prompt: buildPrompt(prevTitle, transcript),
+            prompt,
             signal: ac.signal,
           })
           const timeoutPromise = new Promise((_, reject) =>
             setTimeout(() => reject(new Error("generate-timeout-45s")), 45000),
           )
-          selfGenerating.add(sessionID)
-          try {
-            raw = await Promise.race([genPromise, timeoutPromise])
-          } finally {
-            selfGenerating.delete(sessionID)
-          }
           // Attach a no-op catch so the loser of the race cannot produce an
           // unhandled rejection after we moved on.
           genPromise.catch(() => {})
+          return Promise.race([genPromise, timeoutPromise])
+        }
+        try {
+          selfGenerating.add(sessionID)
+          try {
+            try {
+              raw = await runOnce()
+            } catch (err) {
+              if (ac.signal.aborted) throw err
+              log.debug(`generate retry for ${sessionID} after: ${err?.message ?? err}`)
+              await setStoredWorker(null)
+              if (ac.signal.aborted) throw err
+              raw = await runOnce()
+            }
+          } finally {
+            selfGenerating.delete(sessionID)
+          }
         } catch (err) {
           if (!ac.signal.aborted) log.warn(`generation failed for ${sessionID}: ${err?.message ?? err}`)
+          await note(sessionID, "error-generate", {
+            assistantCount,
+            ms: Date.now() - genStartedAt,
+            error: String(err?.message ?? err).slice(0, 160),
+          })
           return
         }
         if (ac.signal.aborted) return
 
         const parsed = parseTitle(raw)
         if (!parsed) {
-          log.debug(`unparseable title output for ${sessionID}: ${JSON.stringify(raw).slice(0, 200)}`)
+          log.info(`skip ${sessionID}: unparseable output after ${Date.now() - genStartedAt}ms`)
+          log.debug(`raw title output for ${sessionID}: ${JSON.stringify(raw).slice(0, 200)}`)
+          await note(sessionID, "skip-parse", {
+            assistantCount,
+            ms: Date.now() - genStartedAt,
+            raw: String(raw).slice(0, 160),
+          })
           return
         }
         const base = `${parsed.category}: ${parsed.title}`
         if (prevTitle && normalize(base) === normalize(prevTitle)) {
-          log.debug(`topic unchanged for ${sessionID}; skipping rename`)
+          log.info(`skip ${sessionID}: topic unchanged, keeps "${prevTitle}"`)
+          await note(sessionID, "skip-same-topic", { assistantCount, base })
           return
         }
 
         const latest = await state.read(sessionID, true)
         if (latest && latest.lastGeneratedAt && latest.lastGeneratedAt > startedAt) {
           log.debug(`another instance titled ${sessionID} first; skipping rename`)
+          await note(sessionID, "skip-converged", { assistantCount })
           return
         }
 
@@ -620,11 +783,17 @@ export default {
           lastTitleAtAssistantCount: assistantCount,
           lastGeneratedAt: Date.now(),
         })
-        log.info(`titled session ${sessionID}: ${finalTitle}`)
+        await note(sessionID, "titled", {
+          assistantCount,
+          ms: Date.now() - genStartedAt,
+          title: finalTitle,
+        })
+        log.info(`titled session ${sessionID} in ${Date.now() - genStartedAt}ms: ${finalTitle}`)
       } catch (err) {
         if (!ac.signal.aborted) log.warn(`title flow failed for ${sessionID}: ${err?.message ?? err}`)
       } finally {
         processing.delete(sessionID)
+        void releaseClaim(sessionID)
       }
     }
 
@@ -645,9 +814,9 @@ export default {
           if (!sessionID) continue
           if (workerIDs.has(sessionID)) continue
           if (event.type === "session.status" && data?.status?.type === "idle") {
-            scheduleTitle(sessionID)
+            scheduleByState(sessionID)
           } else if (event.type === "session.idle") {
-            scheduleTitle(sessionID)
+            scheduleByState(sessionID)
           } else if (event.type === "session.status") {
             cancelTimer(sessionID)
             abortGeneration(sessionID)
