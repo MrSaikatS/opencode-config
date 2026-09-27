@@ -39,11 +39,11 @@ const defaultOptions = () => {
     titleModel: undefined,
     smallModel: undefined,
     minUserMessages: 6,
-    maxUserMessages: 10,
+    maxUserMessages: 6,
     maxCharsPerMessage: 1200,
     initialTitleAtAssistantCount: 3,
     retitleAfterAssistantDelta: 3,
-    idleDebounceMs: 30000,
+    idleDebounceMs: 15000,
     enableRetitle: true,
     includeOpeningRequest: true,
     enabled: true,
@@ -763,11 +763,11 @@ export default {
           return
         }
         const base = `${parsed.category}: ${parsed.title}`
-        if (prevTitle && normalize(base) === normalize(prevTitle)) {
-          log.info(`skip ${sessionID}: topic unchanged, keeps "${prevTitle}"`)
-          await note(sessionID, "skip-same-topic", { assistantCount, base })
-          return
-        }
+        // Refresh-every-run touch: a same topic result still renames with a
+        // fresh timestamp so the title never looks stale. Stored count and
+        // stored time both advance, so the next run needs 3 fresh replies
+        // instead of looping on the same gap.
+        const isSameTopic = !!prevTitle && normalize(base) === normalize(prevTitle)
 
         const latest = await state.read(sessionID, true)
         if (latest && latest.lastGeneratedAt && latest.lastGeneratedAt > startedAt) {
@@ -783,12 +783,21 @@ export default {
           lastTitleAtAssistantCount: assistantCount,
           lastGeneratedAt: Date.now(),
         })
-        await note(sessionID, "titled", {
-          assistantCount,
-          ms: Date.now() - genStartedAt,
-          title: finalTitle,
-        })
-        log.info(`titled session ${sessionID} in ${Date.now() - genStartedAt}ms: ${finalTitle}`)
+        if (isSameTopic) {
+          await note(sessionID, "titled-touch", {
+            assistantCount,
+            ms: Date.now() - genStartedAt,
+            title: finalTitle,
+          })
+          log.info(`touched session ${sessionID} in ${Date.now() - genStartedAt}ms: ${finalTitle}`)
+        } else {
+          await note(sessionID, "titled", {
+            assistantCount,
+            ms: Date.now() - genStartedAt,
+            title: finalTitle,
+          })
+          log.info(`titled session ${sessionID} in ${Date.now() - genStartedAt}ms: ${finalTitle}`)
+        }
       } catch (err) {
         if (!ac.signal.aborted) log.warn(`title flow failed for ${sessionID}: ${err?.message ?? err}`)
       } finally {

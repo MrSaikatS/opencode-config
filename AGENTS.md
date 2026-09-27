@@ -18,6 +18,11 @@ Say what you will do first. Give short updates while you work. Close with full r
 Put command output in reply. User sees little of it.
 Put important text in main reply. Put file drafts in main reply. Do not rely on hidden channel for review.
 
+## Gotcha: explanations must live in the main reply
+
+Short placeholder text plus a question modal hides the detail. Seen live 28/09: the user dismissed the question three times without ever seeing the reasons, and reported that explanations were not reaching them.
+Fix: write full reasons in the main reply first, then raise a single question tool ask. The modal carries only the ask, never the reasoning.
+
 ## Judgment
 
 Have opinions. React to facts. Do not list pros and cons with no verdict. Say what works. Say what fails. Say what to pick.
