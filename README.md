@@ -35,7 +35,7 @@
 | **Plugins**       | `auto-title` V2 session title plugin                             |
 | **MCP Servers**   | Local and remote tool integrations via `mcp.servers`             |
 
-> **Note:** The `v2` working directory replaces `tui.json` with `cli.json`. See Migration below.
+> **Note:** The `v2` working directory replaces `tui.json` with `cli.json`.
 
 ## ✅ Prerequisites
 
@@ -123,19 +123,19 @@ This file replaces the old `tui.json` from `main`. `main` only set `attention.en
 
 ### auto-title
 
-V2 single file plugin at `plugins/auto-title.ts`, 684 lines, no runtime imports.
+V2 single file plugin at `plugins/auto-title.ts`, no runtime imports.
 
 What it does:
 
-- Titles on the 3rd assistant text response, retitles after a delta of 3 more on topic shift
+- Titles on the 3rd assistant text response, retitles every 5 further responses, and renames with a fresh timestamp on every successful run
 - Format: `Category: Description - DD/MM/YYYY h:MMAM/PM`
 - Category must be one of `Feature, Bugfix, Refactor, Docs, Test, Chore, Investigation, Question`
 - Description is 4 to 10 words, specific, no timestamp in model output, timestamp is appended after validation
-- Transcript uses user messages only, 6 messages for initial title, 10 for retitle, 1200 chars per message, includes opening request
-- Idle logic re-arms a 30s debounce on session activity, then `session.wait` confirms idle before inference, aborts in-flight work on new activity
+- Transcript uses user messages only, 6 messages for both initial title and retitle, 1200 chars per message, includes opening request
+- First title fires on a 3s fast path with no idle wait, retitles re-arm a 15s debounce on session activity, then `session.wait` confirms idle before inference, new activity aborts in-flight work unless it is the plugin's own fallback call
 - Model chain is explicit option, then title agent model, then session model, then server default
-- Generation has 3 tiers: one-shot text, reused worker session, transient session fallback, with 45s timeout. `opencode` provider models skip one-shot and go to worker
-- Safety ignores child sessions and worker sessions, adds jitter plus fresh reread to avoid rename storms, sweeps state after 30 days or 500 entries, cleans up on `session.deleted` and unload
+- Generation has 3 tiers: one-shot text, reused worker session, transient session fallback, with each attempt raced against a 45s timeout and one retry on a fresh worker after a stall. `opencode` provider models skip one-shot and go to worker
+- Safety ignores child sessions and worker sessions, uses a single flight claim with 120s TTL plus claim verify and fresh state reread to avoid rename storms, adds jitter, records each decision in a trace store capped at 100 sessions, rebases stored count after compaction, sweeps state after 30 days or 500 entries, cleans up on `session.deleted` and unload
 
 ## 🤝 Contributing
 

@@ -1,14 +1,14 @@
-// auto-title — V2 session title plugin (single file, no runtime imports).
+// auto-title V2 session title plugin, single file, no runtime imports.
 //
-// Generates a `Category: Description - DD/MM/YYYY h:MMAM/PM` title on the 3rd
-// assistant response and re-titles on genuine topic shifts after an idle
-// debounce. Overwrites OpenCode's built-in first-response title by design.
+// Generates Category colon Description plus timestamp title on the 3rd
+// assistant response and fresh titles every 5 further responses after an idle
+// debounce. Overwrites OpenCode built-in first-response title by design.
 //
-// Trigger model (verified against OpenCode v2.0.11 — see API_NOTES.md):
-// `session.status` / `session.idle` events are never emitted by this server,
-// so session activity itself is the heartbeat. Split rule: the first title
+// Trigger model, rechecked against OpenCode v2.0.18, see API_NOTES.md:
+// session.status and session.idle events are never emitted by this server,
+// so session activity itself is the heartbeat. Split rule: first title
 // fires fast after the 3rd assistant response with no idle wait; retitles
-// keep the full idle debounce plus a `session.wait` quiescence check.
+// keep the full idle debounce plus a session.wait quiescence check.
 //
 // Loader note: the server does not resolve bare specifiers (npm packages) for
 // auto-discovered global files, and `Plugin.define()` returns its argument
@@ -42,7 +42,7 @@ const defaultOptions = () => {
     maxUserMessages: 6,
     maxCharsPerMessage: 1200,
     initialTitleAtAssistantCount: 3,
-    retitleAfterAssistantDelta: 3,
+    retitleAfterAssistantDelta: 5,
     idleDebounceMs: 15000,
     enableRetitle: true,
     includeOpeningRequest: true,
@@ -118,10 +118,6 @@ const stripTimestamp = (title) => {
   return String(title).replace(TITLE_SUFFIX_RE, "").trim()
 }
 
-const normalize = (s) => {
-  return String(s).toLowerCase().replace(/\s+/g, " ").trim()
-}
-
 const assistantTextParts = (msg) => {
   if (!msg || msg.type !== "assistant" || !Array.isArray(msg.content)) return []
   return msg.content.filter(
@@ -180,13 +176,11 @@ Do NOT include a date, time, timestamp, or trailing punctuation.
 Do NOT wrap the output in quotes, backticks, or markdown.
 Output only the single line. No preamble, no explanation.
 
-If a previous title is supplied and the conversation topic has NOT materially
-shifted, output that previous title unchanged (without any timestamp).
-If the topic HAS materially shifted, output a new title.`
+Always generate a fresh title from the conversation. Never reuse a prior title.`
 
-const buildPrompt = (prevTitle, transcript) => {
-  // ctx.generate.text has no `system` parameter: fold the system prompt in.
-  return `${SYSTEM_PROMPT}\n\nPrevious title: ${prevTitle ?? "none"}\n\nConversation (user messages only):\n${transcript}`
+const buildPrompt = (transcript) => {
+  // No system parameter on generate text, so fold system prompt in.
+  return `${SYSTEM_PROMPT}\n\nConversation (user messages only):\n${transcript}`
 }
 
 // ---------------------------------------------------------------------------
@@ -562,7 +556,7 @@ export default {
       state
         .read(sessionID)
         .then((prior) => {
-          if (prior?.lastTitle) scheduleTitle(sessionID)
+          if (prior?.lastTitleAtAssistantCount != null) scheduleTitle(sessionID)
           else scheduleTitle(sessionID, Math.min(INITIAL_DEBOUNCE_MS, options.idleDebounceMs))
         })
         .catch(() => scheduleTitle(sessionID))
@@ -612,10 +606,10 @@ export default {
         const assistantCount = countAssistantResponses(messages)
         const prior = await state.read(sessionID)
 
-        const isInitial = !prior?.lastTitle
+        const isInitial = prior?.lastTitleAtAssistantCount == null
         log.info(
           `check ${sessionID}: assistants=${assistantCount} ` +
-            `prior=${prior?.lastTitle ?? "none"} initial=${isInitial}`,
+            `priorCount=${prior?.lastTitleAtAssistantCount ?? "none"} initial=${isInitial}`,
         )
         await note(sessionID, "run", { assistantCount, isInitial })
         if (isInitial && assistantCount < options.initialTitleAtAssistantCount) {
@@ -639,7 +633,7 @@ export default {
             log.info(
               `rebase ${sessionID}: count fell ${prior.lastTitleAtAssistantCount} -> ${assistantCount}`,
             )
-            await state.write(sessionID, { ...prior, lastTitleAtAssistantCount: assistantCount })
+            await state.write(sessionID, { lastTitleAtAssistantCount: assistantCount, lastGeneratedAt: prior?.lastGeneratedAt ?? Date.now() })
             await note(sessionID, "rebase", {
               assistantCount,
               storedCount: prior.lastTitleAtAssistantCount ?? 0,
@@ -684,7 +678,6 @@ export default {
           return
         }
 
-        const prevTitle = prior?.lastTitle ? stripTimestamp(prior.lastTitle) : null
         const model = await resolveTitleModel(ctx, options, session, log)
         if (ac.signal.aborted) return
 
@@ -706,7 +699,7 @@ export default {
 
         let raw = ""
         const genStartedAt = Date.now()
-        const prompt = buildPrompt(prevTitle, transcript)
+        const prompt = buildPrompt(transcript)
         // One attempt races generation against a 45s timeout. Title calls
         // normally take ~30s, so a stall gets one retry on a fresh worker
         // instead of failing the whole run.
@@ -763,11 +756,9 @@ export default {
           return
         }
         const base = `${parsed.category}: ${parsed.title}`
-        // Refresh-every-run touch: a same topic result still renames with a
-        // fresh timestamp so the title never looks stale. Stored count and
-        // stored time both advance, so the next run needs 3 fresh replies
+        // Fresh every run. Every successful run renames with a fresh timestamp.
+        // Stored count and stored time both advance, so the next run needs 5 fresh replies
         // instead of looping on the same gap.
-        const isSameTopic = !!prevTitle && normalize(base) === normalize(prevTitle)
 
         const latest = await state.read(sessionID, true)
         if (latest && latest.lastGeneratedAt && latest.lastGeneratedAt > startedAt) {
@@ -779,25 +770,15 @@ export default {
         const finalTitle = `${base} - ${formatTimestamp()}`
         await renameSession(ctx, sessionID, finalTitle)
         await state.write(sessionID, {
-          lastTitle: base,
           lastTitleAtAssistantCount: assistantCount,
           lastGeneratedAt: Date.now(),
         })
-        if (isSameTopic) {
-          await note(sessionID, "titled-touch", {
-            assistantCount,
-            ms: Date.now() - genStartedAt,
-            title: finalTitle,
-          })
-          log.info(`touched session ${sessionID} in ${Date.now() - genStartedAt}ms: ${finalTitle}`)
-        } else {
-          await note(sessionID, "titled", {
-            assistantCount,
-            ms: Date.now() - genStartedAt,
-            title: finalTitle,
-          })
-          log.info(`titled session ${sessionID} in ${Date.now() - genStartedAt}ms: ${finalTitle}`)
-        }
+        await note(sessionID, "titled", {
+          assistantCount,
+          ms: Date.now() - genStartedAt,
+          title: finalTitle,
+        })
+        log.info(`titled session ${sessionID} in ${Date.now() - genStartedAt}ms: ${finalTitle}`)
       } catch (err) {
         if (!ac.signal.aborted) log.warn(`title flow failed for ${sessionID}: ${err?.message ?? err}`)
       } finally {
