@@ -32,10 +32,8 @@
 | **opencode.json** | Shell, username, formatter, LSP, small model, MCP servers        |
 | **cli.json**      | Theme, animations, session, tabs, attention, prompt, debug       |
 | **AGENTS.md**     | Retrieval-led reasoning, subagents, voice and behavior rules     |
-| **Plugins**       | `auto-title` V2 session title plugin                             |
+| **Plugins**       | `auto-title` session title plugin                                 |
 | **MCP Servers**   | Local and remote tool integrations via `mcp.servers`             |
-
-> **Note:** The `v2` working directory replaces `tui.json` with `cli.json`.
 
 ## ✅ Prerequisites
 
@@ -85,8 +83,6 @@
 - **Small model:** `opencode/nemotron-3.5-lightning-free` for lightweight tasks
 - **MCP:** `mcp.servers` with `disabled` flags, `false` means active
 
-Current `opencode.json` has no `permission`, `share`, `compaction`, or `server` keys. Those keys exist on `main` but were removed in the `v2` working directory.
-
 ### 🔌 MCP Servers
 
 | Server        | Type   | Purpose                       | Disabled | Active |
@@ -103,7 +99,7 @@ Details:
 - `bun` runs `https://bun.com/docs/mcp`
 - `deepwiki` runs `https://mcp.deepwiki.com/mcp`
 
-> **Note:** `v2` uses `disabled`, not `enabled`. Set `"disabled": true` to turn a server off.
+> **Note:** Uses `disabled`, not `enabled`. Set `"disabled": true` to turn a server off.
 
 ## 🖥️ CLI UI
 
@@ -117,13 +113,11 @@ Details:
 - **Prompt:** `image_preview: true`
 - **Debug:** `devtools: false`, `turn_tokens: true`
 
-This file replaces the old `tui.json` from `main`. `main` only set `attention.enabled` and `volume`.
-
 ## 🔌 Plugins
 
 ### auto-title
 
-V2 single file plugin at `plugins/auto-title.ts`, no runtime imports.
+Single file plugin at `plugins/auto-title.ts`, no runtime imports.
 
 What it does:
 
@@ -131,11 +125,26 @@ What it does:
 - Format: `Category: Description - DD/MM/YYYY h:MMAM/PM`
 - Category must be one of `Feature, Bugfix, Refactor, Docs, Test, Chore, Investigation, Question`
 - Description is 4 to 10 words, specific, no timestamp in model output, timestamp is appended after validation
-- Transcript uses user messages only, 6 messages for both initial title and retitle, 1200 chars per message, includes opening request
-- First title fires on a 3s fast path with no idle wait, retitles re-arm a 15s debounce on session activity, then `session.wait` confirms idle before inference, new activity aborts in-flight work unless it is the plugin's own fallback call
+- Transcript uses user messages only, 6 messages by default for both initial title and retitle, 1200 chars per message, includes opening request
+- Runs on every session event with a direct count check, no timers and no idle wait. In-flight runs guard against floods, self-generated events are ignored
 - Model chain is explicit option, then title agent model, then session model, then server default
 - Generation has 3 tiers: one-shot text, reused worker session, transient session fallback, with each attempt raced against a 45s timeout and one retry on a fresh worker after a stall. `opencode` provider models skip one-shot and go to worker
-- Safety ignores child sessions and worker sessions, uses a single flight claim with 120s TTL plus claim verify and fresh state reread to avoid rename storms, adds jitter, records each decision in a trace store capped at 100 sessions, rebases stored count after compaction, sweeps state after 30 days or 500 entries, cleans up on `session.deleted` and unload
+- Safety ignores child sessions and worker sessions, uses a single flight claim with 120s TTL plus claim verify and fresh state reread to avoid rename storms, records each decision in a trace store capped at 100 sessions, rebases stored count after compaction, sweeps state after 30 days or 500 entries, cleans up on `session.deleted` and unload
+
+#### Options
+
+| Option                        | Default | Description                                              |
+| ----------------------------- | ------- | -------------------------------------------------------- |
+| `titleModel`                  | unset   | Explicit model ref, string or `{providerID, modelID}`    |
+| `smallModel`                  | unset   | Legacy alias for `titleModel`                            |
+| `minUserMessages`             | `6`     | User messages used for initial title                     |
+| `maxUserMessages`             | `6`     | User messages used for retitle                           |
+| `maxCharsPerMessage`          | `1200`  | Per-message transcript truncation                        |
+| `initialTitleAtAssistantCount` | `3`     | Assistant text responses before first title              |
+| `retitleAfterAssistantDelta`   | `5`     | Further assistant responses before each retitle          |
+| `enableRetitle`               | `true`  | Set `false` to title once and never retitle              |
+| `includeOpeningRequest`       | `true`  | Prepend first user message when outside window           |
+| `enabled`                     | `true`  | Set `false` to disable the plugin                        |
 
 ## 🤝 Contributing
 

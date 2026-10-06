@@ -1,14 +1,13 @@
 // auto-title V2 session title plugin, single file, no runtime imports.
 //
 // Generates Category colon Description plus timestamp title on the 3rd
-// assistant response and fresh titles every 5 further responses after an idle
-// debounce. Overwrites OpenCode built-in first-response title by design.
+// assistant response and fresh titles every 5 further responses.
+// Overwrites OpenCode built-in first-response title by design.
 //
 // Trigger model, rechecked against OpenCode v2.0.18, see API_NOTES.md:
-// session.status and session.idle events are never emitted by this server,
-// so session activity itself is the heartbeat. Split rule: first title
-// fires fast after the 3rd assistant response with no idle wait; retitles
-// keep the full idle debounce plus a session.wait quiescence check.
+// every session event triggers a direct check with no timers and no quiet
+// wait. If the assistant count is due the plugin generates at once.
+// In-flight runs guard floods. Self events are ignored.
 //
 // Loader note: the server does not resolve bare specifiers (npm packages) for
 // auto-discovered global files, and `Plugin.define()` returns its argument
@@ -23,7 +22,6 @@ const CLAIM_TTL_MS = 120000
 const WORKER_TITLE = "auto-title worker managed do not rename"
 const SWEEP_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000
 const SWEEP_MAX_ENTRIES = 500
-const INITIAL_DEBOUNCE_MS = 3000
 
 const unwrap = (v) => {
   if (v && typeof v === "object" && "data" in v && v.data && typeof v.data === "object") return v.data
@@ -43,7 +41,6 @@ const defaultOptions = () => {
     maxCharsPerMessage: 1200,
     initialTitleAtAssistantCount: 3,
     retitleAfterAssistantDelta: 5,
-    idleDebounceMs: 15000,
     enableRetitle: true,
     includeOpeningRequest: true,
     enabled: true,
@@ -65,7 +62,6 @@ const validateOptions = (raw) => {
   if (!Number.isInteger(o.maxCharsPerMessage) || o.maxCharsPerMessage < 100 || o.maxCharsPerMessage > 8000) fail("maxCharsPerMessage", "must be an integer 100..8000")
   if (!Number.isInteger(o.initialTitleAtAssistantCount) || o.initialTitleAtAssistantCount < 1) fail("initialTitleAtAssistantCount", "must be an integer >= 1")
   if (!Number.isInteger(o.retitleAfterAssistantDelta) || o.retitleAfterAssistantDelta < 1) fail("retitleAfterAssistantDelta", "must be an integer >= 1")
-  if (!Number.isInteger(o.idleDebounceMs) || o.idleDebounceMs < 0 || o.idleDebounceMs > 600000) fail("idleDebounceMs", "must be an integer 0..600000")
   for (const k of ["enableRetitle", "includeOpeningRequest", "enabled"]) {
     if (typeof o[k] !== "boolean") fail(k, "must be a boolean")
   }
@@ -370,7 +366,6 @@ export default {
 
     const state = makeStateStore(ctx, log)
     const instanceID = Math.random().toString(36).slice(2) + Date.now().toString(36)
-    const idleTimers = new Map()
     const processing = new Map()
     const selfGenerating = new Set()
     const workerIDs = new Set()
@@ -524,52 +519,6 @@ export default {
       if (w) workerIDs.add(w.sessionID)
     })().catch(() => {})
 
-    const cancelTimer = (sessionID) => {
-      const t = idleTimers.get(sessionID)
-      if (t) {
-        clearTimeout(t)
-        idleTimers.delete(sessionID)
-      }
-    }
-    const abortGeneration = (sessionID) => {
-      const c = processing.get(sessionID)
-      if (c) {
-        try {
-          c.abort()
-        } catch {}
-        processing.delete(sessionID)
-      }
-    }
-    const scheduleTitle = (sessionID, delayMs) => {
-      cancelTimer(sessionID)
-      idleTimers.set(
-        sessionID,
-        setTimeout(() => {
-          idleTimers.delete(sessionID)
-          void maybeGenerateTitle(sessionID)
-        }, delayMs ?? options.idleDebounceMs),
-      )
-    }
-    // Split rule: untitled sessions fire fast so the first title lands near
-    // the 3rd response; titled sessions keep the full idle debounce.
-    const scheduleByState = (sessionID) => {
-      state
-        .read(sessionID)
-        .then((prior) => {
-          if (prior?.lastTitleAtAssistantCount != null) scheduleTitle(sessionID)
-          else scheduleTitle(sessionID, Math.min(INITIAL_DEBOUNCE_MS, options.idleDebounceMs))
-        })
-        .catch(() => scheduleTitle(sessionID))
-    }
-    const heartbeat = (sessionID) => {
-      // Session activity re-arms the debounce: while the conversation is
-      // alive, events keep arriving and the timer never fires. New activity
-      // aborts any in-flight generation for a stale turn — unless the
-      // activity is our own session.generate fallback call.
-      if (!selfGenerating.has(sessionID)) abortGeneration(sessionID)
-      scheduleByState(sessionID)
-    }
-
     const eventDir = (event) => {
       return event?.location?.directory
     }
@@ -577,6 +526,7 @@ export default {
     const maybeGenerateTitle = async (sessionID) => {
       if (processing.has(sessionID)) return
       if (workerIDs.has(sessionID)) return
+      if (selfGenerating.has(sessionID)) return
       const ac = new AbortController()
       processing.set(sessionID, ac)
       const startedAt = Date.now()
@@ -594,8 +544,8 @@ export default {
           return
         }
 
-        // Read-then-gate: count responses before spending any idle wait,
-        // so the first title can fire fast and every skip leaves a trace.
+        // Direct check: count responses then generate at once when due.
+        // No timers and no quiet wait. Every skip leaves a trace.
         let messages = []
         try {
           messages = await listMessages(ctx, sessionID)
@@ -647,15 +597,6 @@ export default {
             await note(sessionID, "skip-delta", { assistantCount, delta })
             return
           }
-          // Retitle idle guard: only spend inference once the session is
-          // actually quiescent. The first title skips this by design.
-          try {
-            await ctx.session.wait({ sessionID }, { signal: ac.signal })
-          } catch (err) {
-            if (!ac.signal.aborted) log.debug(`wait failed for ${sessionID}: ${err?.message ?? err}`)
-            return
-          }
-          if (ac.signal.aborted) return
         }
 
         const windowSize = isInitial ? options.minUserMessages : options.maxUserMessages
@@ -687,9 +628,8 @@ export default {
           return
         }
 
-        // Small jitter + claim verify + fresh-state re-read so concurrent
-        // instances converge instead of rename-storming.
-        await new Promise((r) => setTimeout(r, Math.floor(Math.random() * 2000)))
+        // Claim verify plus fresh-state re-read so concurrent
+        // instances converge instead of rename-storming. No delay.
         if (ac.signal.aborted) return
         if (!(await verifyClaim(sessionID))) {
           log.info(`skip ${sessionID}: lost claim to another instance`)
@@ -796,25 +736,22 @@ export default {
           const sessionID = data && typeof data.sessionID === "string" ? data.sessionID : null
           if (event.type === "session.deleted") {
             if (!sessionID) continue
-            cancelTimer(sessionID)
-            abortGeneration(sessionID)
+            const c = processing.get(sessionID)
+            if (c) {
+              try {
+                c.abort()
+              } catch {}
+              processing.delete(sessionID)
+            }
             await state.delete(sessionID)
             continue
           }
           if (!sessionID) continue
           if (workerIDs.has(sessionID)) continue
-          if (event.type === "session.status" && data?.status?.type === "idle") {
-            scheduleByState(sessionID)
-          } else if (event.type === "session.idle") {
-            scheduleByState(sessionID)
-          } else if (event.type === "session.status") {
-            cancelTimer(sessionID)
-            abortGeneration(sessionID)
-          } else {
-            // No status/idle events on current servers: any session activity
-            // is the heartbeat that re-arms the debounce.
-            heartbeat(sessionID)
-          }
+          if (selfGenerating.has(sessionID)) continue
+          if (processing.has(sessionID)) continue
+          // Direct check with no timers. Count gate inside decides.
+          void maybeGenerateTitle(sessionID)
         } catch (err) {
           if (!controller.signal.aborted) log.warn(`event handling failed: ${err?.message ?? err}`)
         }
@@ -828,8 +765,6 @@ export default {
     return async () => {
       controller.abort()
       await watcher
-      for (const t of idleTimers.values()) clearTimeout(t)
-      idleTimers.clear()
       for (const c of processing.values()) {
         try {
           c.abort()
