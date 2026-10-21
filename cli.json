@@ -8,12 +8,15 @@
   "session": {
     "scrollbar": true,
     "thinking": "show",
-    "grouping": "none"
+    "grouping": "auto",
+    "verbosity": "high",
+    "new_location": "launch"
   },
   "tabs": {
-    "indicators": "status",
+    "indicators": "numbers",
     "layout": "horizontal",
-    "enabled": true
+    "enabled": true,
+    "mode": "on"
   },
   "attention": {
     "notifications": true,
@@ -21,10 +24,12 @@
     "volume": 1
   },
   "prompt": {
-    "image_preview": true
+    "image_preview": true,
+    "paste": "full"
   },
   "debug": {
     "devtools": false,
     "turn_tokens": true
-  }
+  },
+  "highlights": true
 }

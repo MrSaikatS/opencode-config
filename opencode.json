@@ -4,13 +4,17 @@
   "username": "Saikat",
   "formatter": true,
   "lsp": true,
-  "small_model": "opencode/nemotron-3.5-lightning-free",
+  "agents": {
+    "title": {
+      "model": "opencode/nemotron-3.5-lightning-free"
+    }
+  },
   "mcp": {
     "servers": {
       "shadcn": {
         "type": "local",
         "command": ["bunx", "--bun", "shadcn@latest", "mcp"],
-        "disabled": false
+        "disabled": true
       },
       "better-auth": {
         "type": "remote",
@@ -25,6 +29,11 @@
       "deepwiki": {
         "type": "remote",
         "url": "https://mcp.deepwiki.com/mcp",
+        "disabled": true
+      },
+      "motion": {
+        "type": "remote",
+        "url": "https://mcp.motion.dev",
         "disabled": true
       }
     }

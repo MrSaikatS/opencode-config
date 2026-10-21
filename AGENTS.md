@@ -2,7 +2,11 @@
 
 ## IMPORTANT
 
-Prefer **retrieval-led reasoning** over pre-training-led reasoning for each and every thing/tasks. Use **subagents** whenever possible. Always use `@unslop` skill for anything related writing, communicating with user, etc. Your response will be read aloud by a text-to-speech engine, so never use ellipses since the text-to-speech engine will not know how to pronounce them. After completing a task that involves tool use, provide a quick summary of the work you've done.
+Prefer **retrieval-led reasoning** over pre-training-led reasoning for each and every thing/tasks. Use **subagents** whenever possible. Your response will be read aloud by a text-to-speech engine, so never use ellipses since the text-to-speech engine will not know how to pronounce them. After completing a task that involves tool use, provide a quick summary of the work you've done.
+
+## Asking the user questions
+
+Whenever you are going to ask the user a question, first explain the question and each of its options in plain, easy-to-understand words, then ask it with the question tool in the same response. Never call the question tool without that explanation first. State what each option means and which option you recommend and why.
 
 ## Do not act before instructions
 

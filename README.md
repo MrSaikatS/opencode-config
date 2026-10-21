@@ -29,8 +29,8 @@
 
 | Component         | Description                                                      |
 | ----------------- | ---------------------------------------------------------------- |
-| **opencode.json** | Shell, username, formatter, LSP, small model, MCP servers        |
-| **cli.json**      | Theme, animations, session, tabs, attention, prompt, debug       |
+| **opencode.json** | Shell, username, formatter, LSP, title agent model, MCP servers |
+| **cli.json**      | Theme, animations, session, tabs, attention, prompt, debug, highlights |
 | **AGENTS.md**     | Retrieval-led reasoning, subagents, voice and behavior rules     |
 | **Plugins**       | `auto-title` session title plugin                                 |
 | **MCP Servers**   | Local and remote tool integrations via `mcp.servers`             |
@@ -80,17 +80,18 @@
 - **Username:** `Saikat`
 - **Formatter:** `true`
 - **LSP:** `true`
-- **Small model:** `opencode/nemotron-3.5-lightning-free` for lightweight tasks
+- **Title agent model:** `opencode/nemotron-3.5-lightning-free` via `agents.title.model`, used by auto-title plugin
 - **MCP:** `mcp.servers` with `disabled` flags, `false` means active
 
 ### 🔌 MCP Servers
 
 | Server        | Type   | Purpose                       | Disabled | Active |
 | ------------- | ------ | ----------------------------- | -------- | ------ |
-| `shadcn`      | local  | UI component management       | `false`  | yes    |
+| `shadcn`      | local  | UI component management       | `true`   | no     |
 | `better-auth` | remote | Authentication library docs   | `false`  | yes    |
 | `bun`         | remote | Bun runtime docs              | `true`   | no     |
 | `deepwiki`    | remote | AI-powered repo documentation | `true`   | no     |
+| `motion`      | remote | Motion animation docs         | `true`   | no     |
 
 Details:
 
@@ -98,6 +99,7 @@ Details:
 - `better-auth` runs `https://mcp.better-auth.com/mcp`
 - `bun` runs `https://bun.com/docs/mcp`
 - `deepwiki` runs `https://mcp.deepwiki.com/mcp`
+- `motion` runs `https://mcp.motion.dev`
 
 > **Note:** Uses `disabled`, not `enabled`. Set `"disabled": true` to turn a server off.
 
@@ -107,44 +109,42 @@ Details:
 
 - **Theme:** `name: opencode`, `mode: dark`
 - **Animations:** `true`
-- **Session:** `scrollbar: true`, `thinking: show`, `grouping: none`
-- **Tabs:** `indicators: status`, `layout: horizontal`, `enabled: true`
+- **Session:** `scrollbar: true`, `thinking: show`, `grouping: auto`, `verbosity: high`, `new_location: launch`
+- **Tabs:** `indicators: numbers`, `layout: horizontal`, `enabled: true`, `mode: on`
 - **Attention:** `notifications: true`, `sound: true`, `volume: 1`
-- **Prompt:** `image_preview: true`
+- **Prompt:** `image_preview: true`, `paste: full`
 - **Debug:** `devtools: false`, `turn_tokens: true`
+- **Highlights:** `true`
 
 ## 🔌 Plugins
 
 ### auto-title
 
-Single file plugin at `plugins/auto-title.ts`, no runtime imports.
+Single file plugin at `plugins/auto-title.ts`, imports `Plugin` from `@opencode/plugin`.
 
 What it does:
 
 - Titles on the 3rd assistant text response, retitles every 5 further responses, and renames with a fresh timestamp on every successful run
-- Format: `Category: Description - DD/MM/YYYY h:MMAM/PM`
-- Category must be one of `Feature, Bugfix, Refactor, Docs, Test, Chore, Investigation, Question`
-- Description is 4 to 10 words, specific, no timestamp in model output, timestamp is appended after validation
+- Format: `Title text - DD/MM/YYYY h:MMAM/PM`. Model outputs title text only, plugin appends timestamp after validation
+- Title text is 4 to 8 words, specific to the conversation, no category, label, prefix, date, timestamp, quotes, or trailing punctuation. Legacy `Category:` prefix is stripped if present
 - Transcript uses user messages only, 6 messages by default for both initial title and retitle, 1200 chars per message, includes opening request
-- Runs on every session event with a direct count check, no timers and no idle wait. In-flight runs guard against floods, self-generated events are ignored
-- Model chain is explicit option, then title agent model, then session model, then server default
-- Generation has 3 tiers: one-shot text, reused worker session, transient session fallback, with each attempt raced against a 45s timeout and one retry on a fresh worker after a stall. `opencode` provider models skip one-shot and go to worker
-- Safety ignores child sessions and worker sessions, uses a single flight claim with 120s TTL plus claim verify and fresh state reread to avoid rename storms, records each decision in a trace store capped at 100 sessions, rebases stored count after compaction, sweeps state after 30 days or 500 entries, cleans up on `session.deleted` and unload
+- Runs on every session event with a direct count check, no timers and no idle wait. In-flight runs guard against floods, worker and self-generated events are ignored
+- Model comes from `agents.title.model` only. No plugin option override. Skips with trace if missing, 10 minute cooldown after auth failure
+- Generation creates one fresh ephemeral worker per run via the primary agent loop and removes it after reading. Single attempt only, one worker and one inference call per run, raced against a 90s timeout with no retry by design
+- Safety ignores child sessions and worker sessions, uses single-flight processing map plus storage claim and filesystem lock with 120s TTL plus fresh state reread before rename to avoid storms, records each decision in a trace store capped at 100 sessions, rebases stored count after compaction, cleans up on `session.deleted` and unload
 
 #### Options
 
-| Option                        | Default | Description                                              |
-| ----------------------------- | ------- | -------------------------------------------------------- |
-| `titleModel`                  | unset   | Explicit model ref, string or `{providerID, modelID}`    |
-| `smallModel`                  | unset   | Legacy alias for `titleModel`                            |
-| `minUserMessages`             | `6`     | User messages used for initial title                     |
-| `maxUserMessages`             | `6`     | User messages used for retitle                           |
-| `maxCharsPerMessage`          | `1200`  | Per-message transcript truncation                        |
-| `initialTitleAtAssistantCount` | `3`     | Assistant text responses before first title              |
-| `retitleAfterAssistantDelta`   | `5`     | Further assistant responses before each retitle          |
-| `enableRetitle`               | `true`  | Set `false` to title once and never retitle              |
-| `includeOpeningRequest`       | `true`  | Prepend first user message when outside window           |
-| `enabled`                     | `true`  | Set `false` to disable the plugin                        |
+| Option                        | Default | Description                                     |
+| ----------------------------- | ------- | ----------------------------------------------- |
+| `minUserMessages`             | `6`     | User messages used for initial title            |
+| `maxUserMessages`             | `6`     | User messages used for retitle                  |
+| `maxCharsPerMessage`          | `1200`  | Per-message transcript truncation               |
+| `initialTitleAtAssistantCount` | `3`     | Assistant text responses before first title     |
+| `retitleAfterAssistantDelta`   | `5`     | Further assistant responses before each retitle |
+| `enableRetitle`               | `true`  | Set `false` to title once and never retitle     |
+| `includeOpeningRequest`       | `true`  | Prepend first user message when outside window  |
+| `enabled`                     | `true`  | Set `false` to disable the plugin               |
 
 ## 🤝 Contributing
 
